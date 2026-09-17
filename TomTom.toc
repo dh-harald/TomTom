@@ -1,0 +1,35 @@
+## Interface: 11200
+## Title: TomTom |cff7fff7f-Ace3v-|r
+## Author: cladhaire
+## Credits: Aero/Schaka/Logonz/Dyaxler/Alphaest/cralor
+## Notes: A standalone Vanilla TomTom, on Ace3v and LibHereBeDragons
+## Version: @project-version@
+## SavedVariables: TomTomDB
+
+# Ace3v, in Ace3.toc dependency order.
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+Libs\AceCore-3.0\AceCore-3.0.xml
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceHook-3.0\AceHook-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
+Libs\AceLocale-3.0\AceLocale-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+# The options window.  AceConfig-3.0 is NOT shipped at all: its Cmd path was the old
+# /tomtom text tree, which /tomtom now replaces with this window, and its Dialog path pulls in
+# AceGUI-3.0, which does not work on Unreal Azeroth.  LibConfig-1.0 consumes the same
+# AceConfig-format options table AceConfigDialog would.
+Libs\LibConfig-1.0\LibConfig-1.0.xml
+
+# Optional for the map library: bridges localized zone names, so zone-index learning and
+# /way <zone name> work on a non-enUS client.
+Libs\LibBabble-Zone-2.2\LibBabble-Zone-2.2.xml
+
+# Map data and pins, replacing Astrolabe.
+Libs\LibHereBeDragons-1.0\LibHereBeDragons-1.0.xml
+Libs\LibHereBeDragons-Pins-1.0\LibHereBeDragons-Pins-1.0.xml
+
+TomTom.lua
+Waypoints.lua
+WayHandler.lua
