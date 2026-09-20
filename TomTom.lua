@@ -235,6 +235,18 @@ function TomTom:CreateFrames()
     wayframe:SetHeight(42)
     wayframe:SetWidth(56)
     wayframe:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    -- Lowest UI strata, deliberately: a navigation arrow is worth less on
+    -- screen than anything the player deliberately opened, so every window --
+    -- and every other addon's frame -- occludes it rather than the other way
+    -- round. Upstream leaves the strata unset, which lands it in the same
+    -- band as ordinary windows and makes the result depend on frame levels.
+    --
+    -- Set BEFORE the title frame is created below, so that child is built
+    -- into the same strata; on Unreal Azeroth `SetFrameStrata` also pushes
+    -- the strata onto existing children, so a later change stays consistent
+    -- too. It does not cost the arrow its mouse: hit testing only picks a
+    -- higher frame when one actually overlaps the cursor.
+    wayframe:SetFrameStrata("BACKGROUND")
     wayframe:EnableMouse(true)
     wayframe:SetMovable(true)
     wayframe:Hide()
@@ -244,12 +256,24 @@ function TomTom:CreateFrames()
     wayframe.speed = 0
     wayframe.speed_count = 0
 
-    -- Frame used to control the scaling of the title and friends
+    -- Frame used to control the scaling of the title and friends.
+    --
+    -- Kept at the SAME frame level as the arrow it labels. A child frame sits
+    -- one level above its parent by default, and upstream leaves it there --
+    -- which puts the arrow (a region of `wayframe`) and its labels (regions of
+    -- this child) on two different levels, so another window can be drawn
+    -- between them and cover the arrow while the text stays visible on top of
+    -- it. They are one HUD element and have to occlude as one.
     local titleframe = CreateFrame("Frame", nil, wayframe)
     wayframe.titleframe = titleframe
-    wayframe.title = titleframe:CreateFontString("OVERLAY", nil, "GameFontHighlightSmall")
-    wayframe.status = titleframe:CreateFontString("OVERLAY", nil, "GameFontNormalSmall")
-    wayframe.tta = titleframe:CreateFontString("OVERLAY", nil, "GameFontNormalSmall")
+    titleframe:SetFrameLevel(wayframe:GetFrameLevel())
+    -- `CreateFontString([name][, layer][, template])`: upstream passes
+    -- "OVERLAY" in the NAME slot and leaves the layer nil, so these land on
+    -- the default ARTWORK layer rather than the OVERLAY it meant. Same slip on
+    -- the arrow texture below.
+    wayframe.title = titleframe:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    wayframe.status = titleframe:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    wayframe.tta = titleframe:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     wayframe.title:SetPoint("TOP", wayframe, "BOTTOM", 0, 0)
     wayframe.status:SetPoint("TOP", wayframe.title, "BOTTOM", 0, 0)
     wayframe.tta:SetPoint("TOP", wayframe.status, "BOTTOM", 0, 0)
@@ -259,7 +283,7 @@ function TomTom:CreateFrames()
     wayframe:RegisterForDrag("LeftButton")
     wayframe:RegisterEvent("ZONE_CHANGED_NEW_AREA")
     wayframe:SetScript("OnEvent", self.OnEvent)
-    wayframe.arrow = wayframe:CreateTexture("OVERLAY")
+    wayframe.arrow = wayframe:CreateTexture(nil, "OVERLAY")
     wayframe.arrow:SetTexture("Interface\\AddOns\\TomTom\\Images\\Arrow")
     wayframe.arrow:SetAllPoints()
 
