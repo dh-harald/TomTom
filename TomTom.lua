@@ -220,7 +220,15 @@ function TomTom:CreateFrames()
     self.eventsFrame:RegisterEvent("PLAYER_ENTERING_WORLD");
     self.eventsFrame:SetScript("OnEvent", self.OnEvents);
 
-    self.dropdown = CreateFrame("Frame", "TomTomDropdown", nil, "UIDropDownMenuTemplate")
+    -- Menu host only: it is handed to UIDropDownMenu_Initialize and to
+    -- ToggleDropDownMenu, which anchors the popup to "cursor" -- so neither
+    -- this frame's own visibility nor its position is ever used. Upstream
+    -- creates it parentless and unanchored and never hides it, which leaves
+    -- the template's own closed-dropdown art (the label-frame box and the
+    -- arrow button) drawing at the screen's bottom-left corner on Unreal
+    -- Azeroth, over whatever sits there.
+    self.dropdown = CreateFrame("Frame", "TomTomDropdown", UIParent, "UIDropDownMenuTemplate")
+    self.dropdown:Hide()
 
     local wayframe = CreateFrame("Button", "TomTomCrazyArrow", UIParent)
     self.wayframe = wayframe
