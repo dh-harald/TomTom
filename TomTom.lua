@@ -77,6 +77,7 @@ TomTom.defaults = {
             autoqueue = true,
             arrival = 30,
             locked = true,
+            clickthrough = false,
             location = nil,
             enablePing = true,
             menu = true,
@@ -148,6 +149,17 @@ function TomTom:ColorGradient(perc, tablee)
 end
 
 function TomTom:WayFrame_OnClick()
+    -- Click-through is enforced HERE as well as through EnableMouse, because
+    -- on Unreal Azeroth EnableMouse does not cover this script. Its own docs
+    -- scope it to `OnEnter`, `OnLeave`, `OnMouseUp`, `OnMouseDown` "and
+    -- related" -- `OnClick` is not in that list, and live the right-click menu
+    -- still opened with the frame's mouse disabled. `RegisterForClicks` is no
+    -- help either: on that client it only ever APPENDS to the list, so the
+    -- registration cannot be taken back, and an empty list still fires
+    -- `OnClick` on left release.
+    local arrow = TomTom.profile and TomTom.profile.arrow
+    if arrow and arrow.locked and arrow.clickthrough then return end
+
     if arg1 == "RightButton" and IsShiftKeyDown() then
         TomTom:GoToNextWayPoint(TomTom.active_waypoint);
     elseif arg1 == "RightButton" then
@@ -306,6 +318,56 @@ function TomTom:OnDragStart(self, button)
     if not TomTom.profile.arrow.locked then
         this:StartMoving()
         this:SetClampedToScreen(true);
+    end
+end
+
+-- Click-through, the newer upstream's term for it: a click lands on whatever
+-- is behind the arrow -- the 3D world included -- rather than being swallowed.
+--
+-- TWO calls, because on Unreal Azeroth `EnableMouse(false)` alone does not do
+-- it, measured: with `IsMouseEnabled()` reporting false the arrow STILL
+-- covered the NPC behind it (no cursor change, not targetable) and its own
+-- `OnClick` still fired. UA's Button keeps hit testing whatever that flag
+-- says. **Collapsing the HIT RECTANGLE is what actually works there**, and it
+-- is a separate API (`SetHitRectInsets`, "shrinks the mouse/touch hit
+-- rectangle inward from each edge"), so it is not a second attempt at the
+-- same lever.
+--
+-- `EnableMouse` is kept alongside it: it is the semantically correct call,
+-- it is what works on the legacy client, and the two together leave nothing
+-- depending on a single client's quirk. Insets come from the live size rather
+-- than the 56x42 the frame is created at, so a later resize cannot silently
+-- reopen the rect.
+--
+-- Dragging and the right-click menu are unreachable while this is on, by
+-- definition: both arrive as mouse input on this frame. The waypoint slash
+-- commands are unaffected, so the arrow can always be managed without it.
+--
+-- GATED ON THE LOCK, and this is the point of the gate rather than mere
+-- tidiness: click-through on an UNLOCKED arrow is a trap with no way out from
+-- the UI -- the arrow cannot be dragged (no mouse) and the option that would
+-- undo it is the one the player has to reach. So the lock is the authority:
+-- the mouse only goes away while the arrow is locked in place anyway, and
+-- unlocking hands it straight back, whatever the stored preference says. The
+-- option itself is greyed out while unlocked so the control matches.
+--
+-- Re-applied from OnProfileEnable as well as from both options, so neither a
+-- profile switch nor a lock toggle can leave the frame in a stale state.
+function TomTom:ApplyArrowClickThrough()
+    if not self.wayframe or not self.profile then return end
+    local arrow = self.profile.arrow
+    local through = arrow.locked and arrow.clickthrough
+
+    self.wayframe:EnableMouse(not through)
+
+    if through then
+        local w = self.wayframe:GetWidth()
+        local h = self.wayframe:GetHeight()
+        if not w or w <= 0 then w = 56 end
+        if not h or h <= 0 then h = 42 end
+        self.wayframe:SetHitRectInsets(w / 2, w / 2, h / 2, h / 2)
+    else
+        self.wayframe:SetHitRectInsets(0, 0, 0, 0)
     end
 end
 
@@ -818,7 +880,22 @@ TomTom.options = {
                     name = 'Lock the arrow in place',
                     desc = 'Stop the arrow being dragged around the screen',
                     get = function(info) return TomTom.profile.arrow.locked end,
-                    set = function(info, value) TomTom.profile.arrow.locked = value end
+                    set = function(info, value)
+                        TomTom.profile.arrow.locked = value
+                        TomTom:ApplyArrowClickThrough()
+                    end
+                },
+                clickthrough = {
+                    type = 'toggle',
+                    order = 25,
+                    name = 'Click through the arrow',
+                    desc = 'Let clicks pass through the arrow to whatever is behind it, the world included. Dragging it and its right-click menu stop working while this is on, so it needs the arrow locked first',
+                    disabled = function() return not TomTom.profile.arrow.locked end,
+                    get = function(info) return TomTom.profile.arrow.clickthrough end,
+                    set = function(info, value)
+                        TomTom.profile.arrow.clickthrough = value
+                        TomTom:ApplyArrowClickThrough()
+                    end
                 },
                 arrival = {
                     type = 'range',
@@ -1590,6 +1667,7 @@ end
 function TomTom:OnProfileEnable()
     -- This handles the reloading of all options
     self.profile = self.db.profile
+    self:ApplyArrowClickThrough()
     if self.profile.arrow.location ~= nil then
         local point, parent, relative, offx, offy = self.profile.arrow.location[1], self.profile.arrow.location[2], self.profile.arrow.location[3], self.profile.arrow.location[4], self.profile.arrow.location[5]
         -- Cleared first: the saved point is whichever screen edge the arrow was nearest when it
