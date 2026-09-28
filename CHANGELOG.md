@@ -1,3 +1,10 @@
+## [0.1.2](https://github.com/dh-harald/TomTom/compare/v0.1.1...v0.1.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* minimap arrow with green dot looks better ([c8d9913](https://github.com/dh-harald/TomTom/commit/c8d99130eda39c533c6a0c3a9f0454861dde52ca))
+
 ## [0.1.1](https://github.com/dh-harald/TomTom/compare/v0.1.0...v0.1.1) (2026-09-20)
 
 
