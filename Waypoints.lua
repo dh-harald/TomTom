@@ -13,27 +13,34 @@ local Minimap_OnEnter,Minimap_OnLeave,Minimap_OnUpdate,Minimap_OnClick,Minimap_O
 local Arrow_OnUpdate
 local World_OnEnter,World_OnLeave,World_OnClick
 
-local square_half = math.sqrt(0.5)
-local rad_135 = math.rad(135)
+-- Must match tmp/gen-minimap-arrow.py, which bakes the arrow's rotations into a sprite sheet.
+local ARROW_FRAMES, ARROW_COLS = 64, 8
+local ARROW_ROWS = math.ceil(ARROW_FRAMES / ARROW_COLS)
+local twopi = math.pi * 2
 
 local hbd = LibStub("LibHereBeDragons-1.0")
 local hbdp = LibStub("LibHereBeDragons-Pins-1.0")
 
+-- Was the 8-argument SetTexCoord rotation.  Unreal Azeroth renders that form as a sheared,
+-- smeared quad, so the rotations are pre-rendered and the 4-argument form picks one.  Cells run
+-- clockwise from north, the library's own bearing convention.
+local function setArrowBearing(arrow, bearing)
+    local frame = math.floor(bearing / twopi * ARROW_FRAMES + 0.5)
+    frame = frame - math.floor(frame / ARROW_FRAMES) * ARROW_FRAMES
+    local col = frame - math.floor(frame / ARROW_COLS) * ARROW_COLS
+    local row = math.floor(frame / ARROW_COLS)
+    arrow:SetTexCoord(col / ARROW_COLS, (col + 1) / ARROW_COLS, row / ARROW_ROWS, (row + 1) / ARROW_ROWS)
+end
+
 local function rotateArrow(self)
     if self.disabled then return end
 
-    -- Radians now, so no math.rad here.  The old comment asking "why the hell is this in
-    -- degrees from atan2" has its answer: vanilla's global atan2 is degree-based.  The library
-    -- upvalues math.atan2 instead and returns radians, 0 = north, clockwise.
     local angle = hbdp:GetVectorToIcon(self)
     if not angle then return self:Hide() end
-    angle = angle + rad_135
 
     -- Minimap rotation is the pins library's business now: it rotates the pin positions, and
     -- this arrow only shows the bearing to the pin, so nothing is needed here.
-
-    local sin,cos = math.sin(angle), math.cos(angle) -- math.sin(angle) * square_half, math.cos(angle) * square_half
-    self.arrow:SetTexCoord(0.5-sin, 0.5+cos, 0.5+cos, 0.5+sin, 0.5-cos, 0.5-sin, 0.5+sin, 0.5-cos)
+    setArrowBearing(self.arrow, angle)
 end
 
 function TomTom:ReparentMinimap(minimap)
@@ -76,7 +83,7 @@ function TomTom:SetWaypoint(waypoint, callbacks, show_minimap, show_world)
         minimap.icon:SetWidth(12)
 
         minimap.arrow = minimap:CreateTexture("BACKGROUND")
-        minimap.arrow:SetTexture("Interface\\AddOns\\TomTom\\Images\\MinimapArrow-Green")
+        minimap.arrow:SetTexture("Interface\\AddOns\\TomTom\\Images\\MinimapArrow-Green-Sheet")
         minimap.arrow:SetPoint("CENTER", 0 ,0)
         minimap.arrow:SetHeight(40)
         minimap.arrow:SetWidth(40)
@@ -345,16 +352,7 @@ do
                 self.arrow:Show()
 
                 -- Rotate the icon, as required
-                angle = math.rad(angle) + rad_135
-                -- why the hell is this in degrees from atan2 method?
-
-                --                if GetCVar("rotateMinimap") == "1" then
-                --                    --local cring = MiniMapCompassRing:GetFacing()
-                --                    local cring = GetPlayerFacing()
-                --                    angle = angle - cring
-                --                end
-                local sin,cos = math.sin(angle) * square_half, math.cos(angle) * square_half
-                self.arrow:SetTexCoord(0.5-sin, 0.5+cos, 0.5+cos, 0.5+sin, 0.5-cos, 0.5-sin, 0.5+sin, 0.5-cos)
+                setArrowBearing(self.arrow, angle)
             end
         else
             if not disabled then
